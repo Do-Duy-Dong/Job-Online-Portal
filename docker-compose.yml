@@ -19,7 +19,7 @@ services:
     environment:
       - POSTGRES_DB=app-db
       - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=123456
+      - POSTGRES_PASSWORD=12345
     ports:
       - "5433:5432"
     volumes:

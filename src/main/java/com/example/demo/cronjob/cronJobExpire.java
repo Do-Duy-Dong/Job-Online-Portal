@@ -12,7 +12,7 @@ public class cronJobExpire {
     @Scheduled(cron = "0 0 0 * * *")
     public void expireJobs(){
         int batchSize= 100;
-        int updatedCount=0; 
+        int updatedCount=0;
         do{
             updatedCount = jobRepository.updateExpiredJobs(batchSize);
             try{

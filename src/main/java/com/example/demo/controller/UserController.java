@@ -14,8 +14,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -93,7 +91,7 @@ public class UserController {
             @RequestPart MultipartFile file,
             @RequestParam String oldCvId,
             Authentication authentication
-    )  {
+    ){
         String email= authentication.getName();
         userService.updateCv(oldCvId,email,file);
         return ResponseEntity.ok("Update CV successfully");
