@@ -99,16 +99,16 @@ public class JobService {
             String keyword,
             String sortKey,
             String sortValue,
-            Integer postion,
+            Integer position,
             Integer salary
     ){
-        Specification<Job> spec= FilterJob.filter(salary,postion,keyword);
+        Specification<Job> spec= FilterJob.filter(salary,position,keyword);
         Sort sort= sortValue.equalsIgnoreCase("asc") ?
                 Sort.by(sortKey).ascending():
                 Sort.by(sortKey).descending();
 
         Pageable pageable= PageRequest.of(page-1,size,sort);
-        Page<Job> jobs= jobRepository.findAllByStatus("OPEN",spec,pageable);
+        Page<Job> jobs= jobRepository.findAll(spec,pageable);
 
         List<JobAllResponse> listJobDTo = jobs.getContent().stream()
                 .map(record->{

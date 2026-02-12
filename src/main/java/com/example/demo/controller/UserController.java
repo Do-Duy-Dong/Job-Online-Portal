@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.payload.Response.UserResponseDTO;
 import com.example.demo.repository.JobRepository;
+import com.example.demo.service.CvService;
 import com.example.demo.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,12 +24,15 @@ public class UserController {
     @Value("${file.upload-dir}")
     private String uploadDir;
     private final UserService userService;
+    private final CvService cvService;
     private final JobRepository jobRepository;
     public UserController(UserService userService,
-    JobRepository jobRepository
+    JobRepository jobRepository,
+    CvService cvService
     ){
         this.userService= userService;
         this.jobRepository= jobRepository;
+        this.cvService= cvService;
     }
 
     @GetMapping("/api/user/profile")
@@ -61,16 +65,24 @@ public class UserController {
             Authentication authentication
     ){
         String email= authentication.getName();
-        userService.uploadCv(email,file);
+//        userService.uploadCv(email,file);
+        cvService.uploadToCloud(email,file);
         return ResponseEntity.ok("ok");
     }
-
+    @DeleteMapping("/api/user/delete-cv/{cvId}")
+    public ResponseEntity<?> deleteCv(
+            @PathVariable String cvId,
+            Authentication authentication
+    ){
+        String email= authentication.getName();
+        userService.deleteCv(cvId,email);
+        return ResponseEntity.ok("cv deleted");
+    }
     @GetMapping("/api/file/look/{fileName}")
     public ResponseEntity<?> lookFile(
             @PathVariable String fileName
     ){
         try {
-
             Path path= Paths.get(uploadDir).resolve(fileName).normalize();
             log.info("File Path: {}", path.toUri().toString());
             Resource resource = new UrlResource(path.toUri());
@@ -86,17 +98,6 @@ public class UserController {
             return ResponseEntity.status(400).body("error loading file");
         }
     }
-    @PatchMapping("/api/user/update-cv")
-    public ResponseEntity<String> updateCv(
-            @RequestPart MultipartFile file,
-            @RequestParam String oldCvId,
-            Authentication authentication
-    ){
-        String email= authentication.getName();
-        userService.updateCv(oldCvId,email,file);
-        return ResponseEntity.ok("Update CV successfully");
-    }
-
 
     @PostMapping(
             value= "/api/user/test"

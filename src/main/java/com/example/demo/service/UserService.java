@@ -25,11 +25,13 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class UserService {
-
+    //    demo/upload
     @Value("${file.upload-dir}")
-//    demo/upload
     private String pathUpload;
-
+    @Value("${spring.cloud.aws.s3.bucket}")
+    private String bucketName;
+    @Value("${aws.s3.domain}")
+    private String domain;
     private final ModelMapper modelMapper;
     private final UserRepository userRepository;
     private final CvService cvService;
@@ -64,6 +66,29 @@ public class UserService {
         UserResponseDTO dto= modelMapper.map(user, UserResponseDTO.class);
         return dto;
     }
+
+//    Cloud
+    public List<String> getAllUserCv(String email){
+        List<CV> cvs= cvService.findAllByUserId(getUserByEmail(email).getId());
+        List<String> urls= cvs.stream().map(cv->{
+            return domain+cv.getUrl();
+        })
+                .toList();
+        return urls;
+    }
+    public void deleteCv(String cvId,String email){
+        CV cv= cvService.findById(UUID.fromString(cvId));
+        if(!cv.getEmployee().getEmail().equals(email)){
+            throw new ResourceNotFound("You do not have permission to delete this CV");
+        }
+        if(jobApplicationService.checkCvFromApplyJob(UUID.fromString(cvId))){
+            cv.setActive(false);
+            cvService.save(cv);
+        }else{
+            cvService.deleteFromCloud(cv);
+        }
+    }
+//    local disk
     public void uploadCv(String email, MultipartFile file){
         try {
             User user= getUserByEmail(email);
@@ -88,28 +113,9 @@ public class UserService {
             throw new ResourceNotFound("Could not upload file");
         }
     }
-
     public List<CvResponse> listCv(String email){
         User user= getUserByEmail(email);
         List<CvResponse> cvResponses= cvService.CvResponses(user.getId());
         return cvResponses;
-    }
-
-    public void updateCv(String oldCvId,String email, MultipartFile file){
-        if(jobApplicationService.checkCvFromApplyJob(UUID.fromString(oldCvId))){
-            uploadCv(email, file);
-        }else{
-//            Xoá file
-            CV oldCv= cvService.findById(UUID.fromString(oldCvId));
-            try{
-                Path oldPath= Paths.get(pathUpload).resolve(oldCv.getUrl()).normalize();
-                Files.deleteIfExists(oldPath);
-                cvService.delete(oldCv);
-                uploadCv(email, file);
-            } catch (IOException e) {
-                log.error("Could not delete file: {}", e.getMessage());
-                throw new ResourceNotFound("Could not delete old file");
-            }
-        }
     }
 }

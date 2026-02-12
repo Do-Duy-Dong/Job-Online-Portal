@@ -16,18 +16,20 @@ import java.util.UUID;
 
 public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificationExecutor<Job> {
     Page<Job> findByTitleContainingIgnoreCase(String title, Pageable pageable);
-    Page<Job> findAllByStatus(String status, Specification<Job> spec,Pageable pageable);
+
+    Page<Job> findAll(Specification<Job> spec, Pageable pageable);
+
     @Modifying
     @Transactional
     @Query(value = """
-            UPDATE job 
-            SET status = 'CLOSED' 
+            UPDATE job
+            SET status = 'CLOSED'
             WHERE id IN (
                 SELECT id
-                FROM job 
+                FROM job
                 WHERE status = 'OPEN' AND expiration_date < NOW()
                 LIMIT :limit
-            ) 
+            )
             """, nativeQuery = true)
     int updateExpiredJobs(@Param("limit") int limit);
 }
