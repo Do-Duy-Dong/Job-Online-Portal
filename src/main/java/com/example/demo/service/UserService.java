@@ -4,6 +4,7 @@ import com.example.demo.entity.CV;
 import com.example.demo.entity.User;
 import com.example.demo.exception.ResourceNotFound;
 import com.example.demo.payload.Response.CvResponse;
+import com.example.demo.payload.Response.ListCvResponse;
 import com.example.demo.payload.Response.UserResponseDTO;
 import com.example.demo.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -113,9 +114,9 @@ public class UserService {
             throw new ResourceNotFound("Could not upload file");
         }
     }
-    public List<CvResponse> listCv(String email){
+    public List<ListCvResponse> listCv(String email){
         User user= getUserByEmail(email);
-        List<CvResponse> cvResponses= cvService.CvResponses(user.getId());
+        List<ListCvResponse> cvResponses= cvService.getListCvNameByUser(user.getId());
         return cvResponses;
     }
 }

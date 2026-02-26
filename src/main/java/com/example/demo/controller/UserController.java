@@ -78,6 +78,18 @@ public class UserController {
         userService.deleteCv(cvId,email);
         return ResponseEntity.ok("cv deleted");
     }
+    @GetMapping("/api/user/cv-url/{fileName}")
+    public ResponseEntity<?> getCvUrl(
+            @PathVariable String fileName,
+            Authentication authentication
+    ){
+        String url = cvService.getSignUrl(fileName);
+        if(url==null){
+            return ResponseEntity.status(404).body("cv not found");
+        }
+        return ResponseEntity.ok(url);
+    }
+
     @GetMapping("/api/file/look/{fileName}")
     public ResponseEntity<?> lookFile(
             @PathVariable String fileName

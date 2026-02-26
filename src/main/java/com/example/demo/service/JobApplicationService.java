@@ -80,11 +80,13 @@ public class JobApplicationService {
     public ResponsePageBase<ApplyResponse> viewApplication(
             String jobId,
             Integer page,
-            Integer size
+            Integer size,
+            UUID companyId
     ){
         Pageable pageable= PageRequest.of(page-1,size);
-        Page<JobApplication> applies= jobApplicationRepository.findAllByJob_Id(
+        Page<JobApplication> applies= jobApplicationRepository.findAllByJobIdWithCompany(
                 UUID.fromString(jobId),
+                companyId,
                 pageable
         );
         List<ApplyResponse> response= applies.stream().map(
@@ -92,7 +94,7 @@ public class JobApplicationService {
                     ApplyResponse dto= new ApplyResponse(
                             item.getEmployee().getFullName(),
                             item.getEmployee().getEmail(),
-                            item.getCv().getUrl(),
+                            cvService.getSignUrl(item.getCv().getUrl()),
                             item.getCreatedAt()
                     );
                     return dto;

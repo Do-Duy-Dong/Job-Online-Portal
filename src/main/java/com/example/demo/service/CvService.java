@@ -4,6 +4,7 @@ import com.example.demo.entity.CV;
 import com.example.demo.entity.User;
 import com.example.demo.exception.ResourceNotFound;
 import com.example.demo.payload.Response.CvResponse;
+import com.example.demo.payload.Response.ListCvResponse;
 import com.example.demo.repository.CVRepository;
 import com.example.demo.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -17,8 +18,13 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
@@ -33,6 +39,7 @@ public class CvService {
 
     private final CVRepository cvRepository;
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final UserRepository userRepository;
 
     public void save(CV cv){
@@ -45,22 +52,34 @@ public class CvService {
     public List<CV> findAllByUserId(UUID userId){
         return cvRepository.findAllByEmployee_IdAndIsActiveTrue(userId);
     }
-    public List<CvResponse> CvResponses (UUID userId ){
-        List<CV> cvs= cvRepository.findAllByEmployee_IdAndIsActiveTrue(userId);
-        List<CvResponse> cvResponseList= cvs.stream()
-                .map(cv->{
-                    String url= ServletUriComponentsBuilder.fromCurrentContextPath()
-                            .path("/api/file/look/")
-                            .path(cv.getUrl())
-                            .toUriString();
-                    CvResponse record= new CvResponse(
-                            cv.getId(),
-                            url
-                    );
-                    return record;
-                })
-                .toList();
-        return cvResponseList;
+    public String getSignUrl(String fileName){
+        try{
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileName)
+                    .build());
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileName)
+                    .build();
+            GetObjectPresignRequest getObjectPresignRequest= GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(15))
+                    .getObjectRequest(getObjectRequest)
+                    .build();
+            return s3Presigner.presignGetObject(getObjectPresignRequest).url().toString();
+        }catch (Exception e){
+            log.error("Error checking file existence in S3", e);
+            return null;
+        }
+    }
+    public List<ListCvResponse> getListCvNameByUser(UUID userId){
+        List<CV> cvs= findAllByUserId(userId);
+        List<ListCvResponse> listCvResponse = cvs.stream().map(
+                cv-> new ListCvResponse(
+                        cv.getUrl(),
+                        cv.getId())
+        ).toList();
+        return listCvResponse;
     }
     public void delete(CV cv){
         cvRepository.delete(cv);
@@ -107,6 +126,23 @@ public class CvService {
     }
 
 //    Local disk
+public List<CvResponse> CvResponses (UUID userId ){
+    List<CV> cvs= cvRepository.findAllByEmployee_IdAndIsActiveTrue(userId);
+    List<CvResponse> cvResponseList= cvs.stream()
+            .map(cv->{
+                String url= ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/api/file/look/")
+                        .path(cv.getUrl())
+                        .toUriString();
+                CvResponse record= new CvResponse(
+                        cv.getId(),
+                        url
+                );
+                return record;
+            })
+            .toList();
+    return cvResponseList;
+}
     public String getUrlByUserId(UUID userId){
         CV cv= cvRepository.findByEmployee_IdAndIsActiveTrue(userId)
                 .orElseThrow(()-> new ResourceNotFound("Active CV not found"));

@@ -1,11 +1,13 @@
 package com.example.demo.controller;
 
+import com.example.demo.entity.User;
 import com.example.demo.payload.Response.ApplyResponse;
 import com.example.demo.payload.Response.ResponsePageBase;
 import com.example.demo.payload.Request.StatusApplyRequest;
 import com.example.demo.service.JobApplicationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,12 +39,15 @@ public class JobApplyController {
     public ResponseEntity<?> viewApplication(
             @PathVariable("id") String id,
             @RequestParam(value = "page",defaultValue = "1") Integer page,
-            @RequestParam(value = "size",defaultValue = "10") Integer size
+            @RequestParam(value = "size",defaultValue = "10") Integer size,
+            Authentication authentication
     ){
+            User user= (User) authentication.getPrincipal();
             ResponsePageBase<ApplyResponse> response= jobApplicationService.viewApplication(
                     id,
                     page,
-                    size
+                    size,
+                    user.getCompany().getId()
             );
             return ResponseEntity.ok(response);
     }
