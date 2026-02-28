@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 public class JobAllResponse {
+    private String id; // UUID string — cursor cho keyset pagination
     @NotNull
     private String title;
     @NotNull

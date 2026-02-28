@@ -11,10 +11,11 @@ public class cronJobExpire {
     private JobRepository jobRepository;
     @Scheduled(cron = "0 0 0 * * *")
     public void expireJobs(){
-        int batchSize= 100;
+        int batchSize= 1000;
         int updatedCount=0;
         do{
             updatedCount = jobRepository.updateExpiredJobs(batchSize);
+            System.out.println("Updated " + updatedCount + " expired jobs.");
             try{
                 if(updatedCount >0){
                     Thread.sleep(1000);

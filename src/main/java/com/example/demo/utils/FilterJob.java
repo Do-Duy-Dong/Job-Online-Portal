@@ -3,8 +3,11 @@ package com.example.demo.utils;
 import com.example.demo.entity.Job;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 public class FilterJob {
-    private static String[] rangeSalary={
+    private static final String[] rangeSalary = {
             "0-10000000",
             "10000000-20000000",
             "20000000-30000000",
@@ -12,7 +15,7 @@ public class FilterJob {
             "40000000-50000000",
             "50000000-1000000000"
     };
-    private static String[] positionEnum={
+    private static final String[] positionEnum = {
             "Internship",
             "Fresher",
             "Junior",
@@ -20,22 +23,56 @@ public class FilterJob {
             "Lead",
             "Manager"
     };
-    public static Specification<Job> filter(Integer salary, Integer postion, String keyword){
-        Specification<Job> spec= Specification.where(null);
-//        Filter by salary,position
-        if( salary != null && salary>=0 && salary<rangeSalary.length){
-            String[] rangeSalarys= rangeSalary[salary].split("-");
-            int startRange= Integer.parseInt(rangeSalarys[0]);
-            int endRange= Integer.parseInt(rangeSalarys[1]);
-            spec= spec.and(JobSpecification.hasSalary(startRange,endRange));
+
+    /** Filter gốc — dùng cho offset pagination (giữ nguyên để tương thích) */
+    public static Specification<Job> filter(Integer salary, Integer position, String keyword) {
+        return buildFilterSpec(salary, position, keyword);
+    }
+
+    /**
+     * Filter cho keyset pagination.
+     * Giống filter() nhưng thêm cursor predicate nếu cursor không null.
+     *
+     * @param cursorTime createdAt của item cuối trang trước (null = trang đầu)
+     * @param cursorId   id của item cuối trang trước (null = trang đầu)
+     */
+    public static Specification<Job> filterKeyset(
+            Integer salary,
+            Integer position,
+            String keyword,
+            LocalDateTime cursorTime,
+            UUID cursorId) {
+        Specification<Job> spec = buildFilterSpec(salary, position, keyword);
+
+        // Chỉ thêm cursor nếu cả hai không null (trang đầu tiên không có cursor)
+        if (cursorTime != null && cursorId != null) {
+            spec = spec.and(JobSpecification.hasCursor(cursorTime, cursorId));
+            System.out.println("apply keyset");
         }
-        if(postion != null && postion>=0 && postion< positionEnum.length){
-            spec= spec.and(JobSpecification.hasPosition(positionEnum[postion]));
+
+        return spec;
+    }
+
+    // ---------------------------------------------------------------
+    // Private helper — xây phần filter chung (salary, position, keyword, expired)
+    // ---------------------------------------------------------------
+    private static Specification<Job> buildFilterSpec(Integer salary, Integer position, String keyword) {
+        Specification<Job> spec = Specification.where(null);
+
+        if (salary != null && salary >= 0 && salary < rangeSalary.length) {
+            String[] parts = rangeSalary[salary].split("-");
+            int from = Integer.parseInt(parts[0]);
+            int to = Integer.parseInt(parts[1]);
+            spec = spec.and(JobSpecification.hasSalary(from, to));
         }
-        if(keyword !=null && !keyword.isEmpty()){
-            spec= spec.and(JobSpecification.hasTitle(keyword));
+        if (position != null && position >= 0 && position < positionEnum.length) {
+            spec = spec.and(JobSpecification.hasPosition(positionEnum[position]));
         }
-        spec= spec.and(JobSpecification.isNotExpired());
+        if (keyword != null && !keyword.isEmpty()) {
+            spec = spec.and(JobSpecification.hasTitle(keyword));
+        }
+        spec = spec.and(JobSpecification.isNotExpired());
+
         return spec;
     }
 }
