@@ -24,18 +24,10 @@ public class FilterJob {
             "Manager"
     };
 
-    /** Filter gốc — dùng cho offset pagination (giữ nguyên để tương thích) */
     public static Specification<Job> filter(Integer salary, Integer position, String keyword) {
         return buildFilterSpec(salary, position, keyword);
     }
 
-    /**
-     * Filter cho keyset pagination.
-     * Giống filter() nhưng thêm cursor predicate nếu cursor không null.
-     *
-     * @param cursorTime createdAt của item cuối trang trước (null = trang đầu)
-     * @param cursorId   id của item cuối trang trước (null = trang đầu)
-     */
     public static Specification<Job> filterKeyset(
             Integer salary,
             Integer position,
@@ -44,7 +36,6 @@ public class FilterJob {
             UUID cursorId) {
         Specification<Job> spec = buildFilterSpec(salary, position, keyword);
 
-        // Chỉ thêm cursor nếu cả hai không null (trang đầu tiên không có cursor)
         if (cursorTime != null && cursorId != null) {
             spec = spec.and(JobSpecification.hasCursor(cursorTime, cursorId));
             System.out.println("apply keyset");
@@ -53,9 +44,6 @@ public class FilterJob {
         return spec;
     }
 
-    // ---------------------------------------------------------------
-    // Private helper — xây phần filter chung (salary, position, keyword, expired)
-    // ---------------------------------------------------------------
     private static Specification<Job> buildFilterSpec(Integer salary, Integer position, String keyword) {
         Specification<Job> spec = Specification.where(null);
 

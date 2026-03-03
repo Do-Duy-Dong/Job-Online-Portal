@@ -27,22 +27,10 @@ public class JobSpecification {
         return (root, query, cb) -> cb.equal(root.get("status"), "OPEN");
     }
 
-    /**
-     * Keyset cursor predicate — thay thế hoàn toàn cho OFFSET.
-     *
-     * Điều kiện tương đương: (createdAt, id) < (cursorTime, cursorId) theo DESC:
-     * (createdAt < cursorTime)
-     * OR (createdAt = cursorTime AND id < cursorId)
-     *
-     * JPA Criteria API sinh ra SQL chuẩn, optimizer vẫn có thể dùng
-     * composite index (created_at, id) cho điều kiện này.
-     */
     public static Specification<Job> hasCursor(LocalDateTime cursorTime, UUID cursorId) {
         return (root, query, cb) -> {
-            // Nhánh 1: created_at < cursorTime
             var beforeTime = cb.lessThan(root.<LocalDateTime>get("createdAt"), cursorTime);
 
-            // Nhánh 2: created_at = cursorTime AND id < cursorId (so sánh UUID as String)
             var sameTime = cb.equal(root.get("createdAt"), cursorTime);
             var beforeId = cb.lessThan(root.get("id"), cursorId);
             var tiebreak = cb.and(sameTime, beforeId);
