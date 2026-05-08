@@ -38,6 +38,6 @@ public class Job extends  BaseEntity{
     private Category category;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employer_id")
-    private User user;
+    private Employer employer;
 
 }

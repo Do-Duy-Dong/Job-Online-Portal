@@ -104,7 +104,20 @@
 		<dependency>
 			<groupId>io.awspring.cloud</groupId>
 			<artifactId>spring-cloud-aws-starter-s3</artifactId>
-			<version>3.1.1</version> </dependency>
+			<version>3.1.1</version>
+		</dependency>
+
+		<!-- Spring Cache -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+
+		<!-- Caffeine - high performance in-memory cache -->
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>

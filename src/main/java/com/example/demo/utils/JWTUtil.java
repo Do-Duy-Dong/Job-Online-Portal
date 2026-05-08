@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class JWTUtil {
@@ -21,40 +24,62 @@ public class JWTUtil {
     private long expirationAccess;
     @Value("${jwt.refreshExpirationMs}")
     private long expirationRefresh;
-//    GENERATE TOKEN
-    private String buildToken(String key, long expiration, String email){
+
+    // GENERATE TOKEN
+    private String buildToken(String key,
+            long expiration,
+            String email,
+            String companyId,
+            List<String> roles,
+            List<String> permissions) {
+        String roleString = String.join(",", roles);
+        String permissionString = permissions != null ? String.join(",", permissions) : "";
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", email);
+        claims.put("roles", roleString);
+        if(permissions != null){
+            claims.put("permissions", permissionString);
+        }
+
+        if (companyId != null) {
+            claims.put("companyId", companyId);
+        }
         return Jwts.builder()
-                .setSubject(email)
+                .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis()+expiration))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(hashKey(key), SignatureAlgorithm.HS256)
                 .compact();
     }
-    public String generateAccessToken(String email){
-        return buildToken(secretAccess, expirationAccess, email);
-    }
-    public String generateRefreshToken(String email){
-        return buildToken(secretRefresh, expirationRefresh, email);
+
+    public String generateAccessToken(String email, String companyId, List<String> roles, List<String> permissions) {
+        return buildToken(secretAccess, expirationAccess, email, companyId, roles, permissions);
     }
 
-//    VALIDATE TOKEN
-    public Claims validateToken(String token,String key){
-        Claims claims= Jwts.parserBuilder()
+    public String generateRefreshToken(String email, String companyId, List<String> roles, List<String> permissions) {
+        return buildToken(secretRefresh, expirationRefresh, email, companyId, roles, permissions);
+    }
+
+    // VALIDATE TOKEN
+    public Claims validateToken(String token, String key) {
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKey(hashKey(key))
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
         return claims;
     }
-    public Claims validateAT(String token){
-        return validateToken(token,secretAccess);
+
+    public Claims validateAT(String token) {
+        return validateToken(token, secretAccess);
     }
+
     public Claims validateRT(String token) {
         return validateToken(token, secretRefresh);
     }
 
-    private Key hashKey(String secret){
-        byte[] keyByte= Decoders.BASE64.decode(secret);
+    private Key hashKey(String secret) {
+        byte[] keyByte = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(keyByte);
     }
 }

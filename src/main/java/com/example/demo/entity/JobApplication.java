@@ -17,13 +17,13 @@ public class JobApplication extends BaseEntity{
     private UUID id;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private statusEnum status ;
+    private statusEnum status;
     @ManyToOne
     @JoinColumn(name = "job_id")
     private Job job;
     @ManyToOne
     @JoinColumn(name ="employee_id")
-    private User employee;
+    private Employee employee;
     @ManyToOne
     @JoinColumn(name = "cv_id")
     private CV cv;

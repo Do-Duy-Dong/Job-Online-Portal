@@ -12,6 +12,9 @@ public interface JobCustomRepository {
             String keyword,
             Integer position,
             Integer salary,
+            Integer location,
             LocalDateTime cursorTime,
             UUID cursorId);
+
+    long countAllJobs(String keyword, Integer position, Integer location, Integer salary);
 }

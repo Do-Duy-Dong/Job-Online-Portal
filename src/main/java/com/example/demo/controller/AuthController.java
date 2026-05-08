@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.payload.Request.LoginRequest;
 import com.example.demo.payload.Request.RegisterEmployerRequest;
+import com.example.demo.payload.Response.LoginResponse;
 import com.example.demo.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,14 +18,22 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    @PostMapping("/api/auth/login")
-    public ResponseEntity<?> login(
+    @PostMapping("/api/auth/employee/login")
+    public ResponseEntity<?> loginEmployee(
             @Valid @RequestBody LoginRequest loginRequest
     ){
-        Map<String, String> tokens= authService.login(loginRequest.getEmail(),loginRequest.getPassword());
+        LoginResponse tokens= authService.loginEmployee(loginRequest.getEmail(),loginRequest.getPassword());
         return ResponseEntity.ok(tokens);
     }
-    @PostMapping("/api/auth/register")
+    @PostMapping("/api/auth/employer/login")
+    public ResponseEntity<?> loginEmployer(
+            @Valid @RequestBody LoginRequest loginRequest
+    ){
+        LoginResponse tokens= authService.loginEmployer(loginRequest.getEmail(),loginRequest.getPassword());
+        return ResponseEntity.ok(tokens);
+    }
+
+    @PostMapping("/api/auth/employee/register")
     public ResponseEntity<?> register(
             @RequestBody Map<String, String> registerRequest)
     {
@@ -44,7 +53,7 @@ public class AuthController {
 
     }
 
-    @PostMapping("/api/auth/register-employer")
+    @PostMapping("/api/auth/employer/register-employer")
     public ResponseEntity<?> registerEmployer(
             @RequestBody @Valid RegisterEmployerRequest registerEmployerRequest
             ){

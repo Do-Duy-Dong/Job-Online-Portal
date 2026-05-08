@@ -1,5 +1,6 @@
-package com.example.demo.controller;
+package com.example.demo.controller.Employee;
 
+import com.example.demo.entity.CustomUserDetail;
 import com.example.demo.payload.Response.JobAllResponse;
 import com.example.demo.payload.Request.JobRequest;
 import com.example.demo.payload.Response.JobResponse;
@@ -8,6 +9,8 @@ import com.example.demo.service.JobService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +28,11 @@ public class JobController {
         this.jobService = jobService;
     }
 
+    /**
+     * GET /api/job/getJob/{id}
+     * Requires: JOB_READ permission
+     */
+//    @PreAuthorize("hasAuthority('PERMISSION_JOB_READ')")
     @GetMapping("/api/job/getJob/{id}")
     public ResponseEntity<?> getJobById(@PathVariable String id) {
         try {
@@ -36,20 +44,26 @@ public class JobController {
         }
     }
 
+    /**
+     * GET /api/job/getAll
+     * Requires: JOB_READ permission
+     */
+//    @PreAuthorize("hasAuthority('PERMISSION_JOB_READ')")
     @GetMapping("/api/job/getAll")
     public ResponseEntity<?> getAllJob(
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestParam(value = "position", required = false) Integer position,
             @RequestParam(value = "salary", required = false) Integer salary,
+            @RequestParam(value = "location", required = false) Integer location,
             @RequestParam(value = "cursorTime", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorTime,
             @RequestParam(value = "cursorId", required = false) String cursorId) {
         try {
             UUID cursorUuid = (cursorId != null && !cursorId.isBlank())
                     ? UUID.fromString(cursorId)
                     : null;
-            KeysetPageResponse<JobAllResponse> jobs = jobService.getAllJobs(size, keyword, position, salary, cursorTime,
-                    cursorUuid);
+            KeysetPageResponse<JobAllResponse> jobs = jobService.getAllJobs(size, keyword, position, location, salary,
+                    cursorTime, cursorUuid);
             return ResponseEntity.ok(jobs);
         } catch (Exception e) {
             e.printStackTrace();
@@ -57,18 +71,5 @@ public class JobController {
         }
     }
 
-    @PostMapping("api/employer/job/create")
-    public ResponseEntity<?> createJob(
-            @RequestBody JobRequest jobRequest,
-            Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            log.info("job: {}", jobRequest.getExpirationDate());
-            jobService.createJob(jobRequest, email);
-            return ResponseEntity.ok("Job created successfully");
-        } catch (Exception e) {
-            log.error("Error creating job: {}", e);
-            return ResponseEntity.status(500).body("Internal Server Error");
-        }
-    }
+
 }

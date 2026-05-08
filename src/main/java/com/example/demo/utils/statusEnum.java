@@ -1,7 +1,11 @@
 package com.example.demo.utils;
 
-public enum statusEnum{
+public enum statusEnum {
     APPLIED,
+    SEEN,
+    INTERVIEW,
+    HIRED,
     REJECTED,
-    ACCEPTED
+    ACCEPTED,
+    CANCELLED
 }

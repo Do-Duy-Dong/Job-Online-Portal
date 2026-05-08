@@ -6,19 +6,22 @@ import lombok.*;
 import java.util.UUID;
 
 @Entity
+@Table(name = "job_assignment")
 @Getter
 @Setter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class CV {
+@AllArgsConstructor
+public class JobAssignment {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    private String url;
-    private String contentType;
-    private boolean isActive=true;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id" )
-    private Employee employee;
+    @JoinColumn(name = "job_id")
+    private Job job;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employer_id")
+    private Employer employer;
 }

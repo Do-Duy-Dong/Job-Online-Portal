@@ -2,13 +2,13 @@ package com.example.demo.config;
 
 import com.example.demo.filter.AuthenFilter;
 import com.example.demo.utils.JWTUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -19,39 +19,45 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // enables @PreAuthorize on methods
 public class SecurityConfig {
     private final AuthenFilter authenFilter;
     private final UserDetailsService userDetailsService;
-    public SecurityConfig(AuthenFilter authenFilter,UserDetailsService userDetailsService){
-        this.userDetailsService= userDetailsService;
+
+    public SecurityConfig(AuthenFilter authenFilter, UserDetailsService userDetailsService) {
+        this.userDetailsService = userDetailsService;
         this.authenFilter = authenFilter;
     }
+
     @Bean
-    public AuthenticationProvider authenticationProvider(){
-        DaoAuthenticationProvider provider= new DaoAuthenticationProvider();
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setPasswordEncoder(passwordEncoder());
         provider.setUserDetailsService(userDetailsService);
         return provider;
     }
+
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception{
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
+
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
     @Bean
-    public SecurityFilterChain authenFilterChain(HttpSecurity httpSecurity) throws Exception{
+    public SecurityFilterChain authenFilterChain(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth ->auth
+                .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/file/look/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/employer/**").hasRole("EMPLOYER")
-
+                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        // MANAGER_HR needs access to employer management routes
+                        .requestMatchers("/api/employer/management/**").hasAnyAuthority("EMPLOYER", "MANAGER_HR", "HR", "HR_INTERN", "ASSISTANT")
+                        .requestMatchers("/api/employer/**").hasAnyAuthority("EMPLOYER", "MANAGER_HR", "HR", "HR_INTERN", "ASSISTANT")
                         .anyRequest().authenticated())
-//                .authenticationProvider(authenticationProvider)
                 .addFilterBefore(authenFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

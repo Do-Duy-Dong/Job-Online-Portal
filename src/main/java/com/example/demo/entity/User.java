@@ -1,7 +1,8 @@
 package com.example.demo.entity;
 
+import com.example.demo.entity.Enum.EnumApprovalStatus;
+import com.example.demo.entity.Enum.EnumUserType;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,7 +12,7 @@ import java.util.UUID;
 @Getter
 @Entity
 @Table(name = "users")
-public class User extends  BaseEntity{
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -21,9 +22,11 @@ public class User extends  BaseEntity{
     @Column(nullable = false)
     private String password;
     private String token;
-    private String role;
-    @ManyToOne
-    @JoinColumn(name = "company_id")
-    private Company company;
+    private EnumUserType userType;
+    @Enumerated(EnumType.STRING)
+    private EnumApprovalStatus approvalStatus;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id")
+    private Role role;
 
 }

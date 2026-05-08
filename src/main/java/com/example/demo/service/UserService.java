@@ -1,11 +1,15 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.CV;
+import com.example.demo.entity.Employee;
+import com.example.demo.entity.Employer;
 import com.example.demo.entity.User;
 import com.example.demo.exception.ResourceNotFound;
 import com.example.demo.payload.Response.CvResponse;
 import com.example.demo.payload.Response.ListCvResponse;
 import com.example.demo.payload.Response.UserResponseDTO;
+import com.example.demo.repository.EmployeeRepository;
+import com.example.demo.repository.EmployerRepository;
 import com.example.demo.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -36,14 +40,19 @@ public class UserService {
     private final ModelMapper modelMapper;
     private final UserRepository userRepository;
     private final CvService cvService;
+    private final EmployeeRepository employeeRepository;
     private final JobApplicationService jobApplicationService;
+    private final EmployerRepository employerRepository;
     public UserService(
             CvService cvService,
-            UserRepository userRepository,
+            UserRepository userRepository, EmployeeRepository employeeRepository,
+            EmployerRepository employerRepository,
             ModelMapper modelMapper,
             JobApplicationService jobApplicationService
     ){
+        this.employeeRepository = employeeRepository;
         this.modelMapper= modelMapper;
+        this.employerRepository= employerRepository;
         this.userRepository= userRepository;
         this.cvService= cvService;
         this.jobApplicationService= jobApplicationService;
@@ -57,9 +66,18 @@ public class UserService {
         return userRepository.findByEmail(email)
                 .orElseThrow(()-> new ResourceNotFound("User not found"));
     }
-    public String getCompanyNameByUserId(UUID userId){
-        User user= getUserById(userId);
-        return user.getCompany().getTitle();
+    public Employer getEmployerByEmail(String email){
+        return employerRepository.findByEmail(email)
+                .orElseThrow(()-> new ResourceNotFound("Employer not found"));
+    }
+    public Employee getEmployeeByEmail(String email){
+        return employeeRepository.findByEmail(email)
+                .orElseThrow(()-> new ResourceNotFound("Employee not found"));
+    }
+    public String getCompanyNameByUserId(String email){
+        Employer employer= employerRepository.findCompanyByEmployerEmail(email)
+                .orElseThrow(()-> new ResourceNotFound("NOT FOUND"));
+        return employer.getCompany().getTitle();
     }
     public UserResponseDTO profile(String email){
         User user= getUserByEmail(email);
@@ -78,10 +96,7 @@ public class UserService {
         return urls;
     }
     public void deleteCv(String cvId,String email){
-        CV cv= cvService.findById(UUID.fromString(cvId));
-        if(!cv.getEmployee().getEmail().equals(email)){
-            throw new ResourceNotFound("You do not have permission to delete this CV");
-        }
+        CV cv= cvService.findById(UUID.fromString(cvId),email);
         if(jobApplicationService.checkCvFromApplyJob(UUID.fromString(cvId))){
             cv.setActive(false);
             cvService.save(cv);
@@ -92,7 +107,7 @@ public class UserService {
 //    local disk
     public void uploadCv(String email, MultipartFile file){
         try {
-            User user= getUserByEmail(email);
+            Employee employee= getEmployeeByEmail(email);
             if(file.isEmpty() || !file.getContentType().equals("application/pdf")){{
                 throw new ResourceNotFound("Invalid file");
             }}
@@ -104,7 +119,7 @@ public class UserService {
             Files.copy(file.getInputStream(),filePath, StandardCopyOption.REPLACE_EXISTING);
 
             CV cv= new CV();
-            cv.setEmployee(user);
+            cv.setEmployee(employee);
             cv.setUrl(fileName);
             cvService.save(cv);
 

@@ -16,11 +16,19 @@ import java.util.UUID;
 public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificationExecutor<Job>, JobCustomRepository {
     Page<Job> findByTitleContainingIgnoreCase(String title, Pageable pageable);
 
-    @EntityGraph(attributePaths = { "category", "user.company" })
+    @EntityGraph(attributePaths = { "category", "employer.company" })
     Optional<Job> findDetailById(UUID id);
 
-    @EntityGraph(attributePaths = { "category", "user.company" })
+    @EntityGraph(attributePaths = { "category", "employer.company" })
     Page<Job> findAll(Specification<Job> spec, Pageable pageable);
+//    Query check company before get job
+    @Query("""
+            SELECT j FROM Job j
+            JOIN FETCH j.employer e
+            JOIN FETCH e.company c
+            WHERE j.id = :id AND c.id = :companyId)
+            """)
+    Optional<Job> findByIdAndCompanyId(UUID id, UUID companyId);
 
     @Query(value = """
             SELECT * FROM public.job j
@@ -47,4 +55,21 @@ public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificatio
             )
             """, nativeQuery = true)
     int updateExpiredJobs(@Param("limit") int limit);
+
+    @Query("""
+            SELECT j FROM Job j
+            JOIN FETCH j.employer e
+            JOIN FETCH e.company c
+            JOIN FETCH j.category
+            WHERE c.id = :companyId
+            AND j.status = 'OPEN'
+            AND (:cursorTime IS NULL OR j.createdAt < :cursorTime
+                OR (j.createdAt = :cursorTime AND j.id < :cursorId))
+            ORDER BY j.createdAt DESC, j.id DESC
+            """)
+    List<Job> findAllByCompanyId(
+            @Param("companyId") UUID companyId,
+            @Param("cursorTime") LocalDateTime cursorTime,
+            @Param("cursorId") UUID cursorId,
+            Pageable pageable);
 }

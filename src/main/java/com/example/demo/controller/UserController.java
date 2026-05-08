@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.payload.Request.MetaDataFile;
+import com.example.demo.payload.Response.CvUploadReponse;
 import com.example.demo.payload.Response.UserResponseDTO;
 import com.example.demo.repository.JobRepository;
 import com.example.demo.service.CvService;
@@ -57,17 +59,25 @@ public class UserController {
     }
 
     @PostMapping(
-            value= "/api/user/upload",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+            value= "/api/user/upload"
     )
     public ResponseEntity<?> uploadFile(
-            @RequestPart MultipartFile file,
+            @RequestBody MetaDataFile metaDataFile,
             Authentication authentication
     ){
         String email= authentication.getName();
 //        userService.uploadCv(email,file);
-        cvService.uploadToCloud(email,file);
-        return ResponseEntity.ok("ok");
+        CvUploadReponse url=cvService.uploadToCLoudByPresign(email,metaDataFile);
+        return ResponseEntity.ok(url);
+    }
+    @PostMapping("/api/user/confirmCv/{s3Key}")
+    public ResponseEntity<?> confirmCv(
+            @PathVariable String s3Key,
+            Authentication authentication
+    ){
+        String email= authentication.getName();
+        cvService.confirmUpload(s3Key,email);
+        return ResponseEntity.ok("cv uploaded successfully");
     }
     @DeleteMapping("/api/user/delete-cv/{cvId}")
     public ResponseEntity<?> deleteCv(

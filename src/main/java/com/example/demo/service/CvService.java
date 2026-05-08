@@ -1,11 +1,16 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.CV;
+import com.example.demo.entity.Employee;
+import com.example.demo.entity.Employer;
 import com.example.demo.entity.User;
 import com.example.demo.exception.ResourceNotFound;
+import com.example.demo.payload.Request.MetaDataFile;
 import com.example.demo.payload.Response.CvResponse;
+import com.example.demo.payload.Response.CvUploadReponse;
 import com.example.demo.payload.Response.ListCvResponse;
 import com.example.demo.repository.CVRepository;
+import com.example.demo.repository.EmployeeRepository;
 import com.example.demo.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -17,16 +22,16 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,14 +46,16 @@ public class CvService {
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
     private final UserRepository userRepository;
-
+    private final EmployeeRepository employeeRepository;
+    private List<String> listFile = List.of("pdf","doc","docx");
     public void save(CV cv){
          cvRepository.save(cv);
     }
-    public CV findById(UUID id){
-        return cvRepository.findById(id)
+    public CV findById(UUID id,String email){
+        return cvRepository.findByCvIdAndEmail(id,email)
                 .orElseThrow(()-> new ResourceNotFound("CV not found"));
     }
+
     public List<CV> findAllByUserId(UUID userId){
         return cvRepository.findAllByEmployee_IdAndIsActiveTrue(userId);
     }
@@ -86,7 +93,7 @@ public class CvService {
     }
     public void uploadToCloud(String username, MultipartFile file){
 //         todo upload to aws s3
-        User user= userRepository.findByEmail(username)
+        Employee user= employeeRepository.findByEmail(username)
                 .orElseThrow(()-> new ResourceNotFound("User not found"));
         String fileName= username + "_" + file.getOriginalFilename().substring(0,10)+ "_"+ LocalDateTime.now();
         PutObjectRequest putObjectRequest= PutObjectRequest.builder()
@@ -109,6 +116,51 @@ public class CvService {
             throw new RuntimeException("Failed to upload file", e);
         }
     }
+    public CvUploadReponse uploadToCLoudByPresign(String username, MetaDataFile metaDataFile){
+        String s3Key= username + "_" + metaDataFile.getFileName().substring(0,10)+ "_"+ LocalDateTime.now();
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .contentType(metaDataFile.getFileType())
+                .key(s3Key)
+                .bucket(bucketName)
+                .build();
+        PutObjectPresignRequest presignRequest= PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(15))
+                .putObjectRequest(putObjectRequest)
+                .build();
+        PresignedPutObjectRequest obj= s3Presigner.presignPutObject(presignRequest);
+
+        Employee user= employeeRepository.findByEmail(username)
+                .orElseThrow(()-> new ResourceNotFound("User not found"));
+        cvRepository.save(
+                CV.builder()
+                        .employee(user)
+                        .url(s3Key)
+                        .contentType(metaDataFile.getFileType())
+                        .isActive(false)
+                        .build()
+
+        );
+        return CvUploadReponse.builder()
+                .url(obj.url().toString())
+                .s3Key(s3Key)
+                .build();
+    }
+    public void confirmUpload(String s3Key, String username){
+        CV cv= cvRepository.findByCvNameAndEmail(s3Key, username)
+                .orElseThrow(()-> new ResourceNotFound("CV not found"));
+        HeadObjectResponse headObjectResponse = s3Client.headObject(r->
+                r.bucket(bucketName).key(s3Key)
+        );
+        if(headObjectResponse.contentLength() >= 5 * 1024*1024 || headObjectResponse.contentType() != cv.getContentType()){
+            cvRepository.delete(cv);
+            s3Client.deleteObject(
+                    r-> r.bucket(bucketName).key(s3Key)
+            );
+            throw new ResourceNotFound("File size exceeds limit or content type mismatch");
+        }
+        cv.setActive(true);
+    }
+
     @Transactional
     public void deleteFromCloud(CV cv){
         try{
