@@ -13,10 +13,11 @@ public interface PermissionRepository extends JpaRepository<Permission, UUID> {
     @Query("""
             SELECT p.name
             FROM User u
-            JOIN FETCH u.role r
-            JOIN FETCH r.detailPermissions dp
-            JOIN FETCH dp.permission p
+            JOIN  u.role r
+            JOIN  r.detailPermissions dp
+            JOIN  dp.permission p
             WHERE u.email = :email
             """)
     List<String> findPermissionsByUserEmail(String email);
+
 }

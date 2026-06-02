@@ -4,10 +4,12 @@ import com.example.demo.entity.*;
 import com.example.demo.entity.Enum.EnumApprovalStatus;
 import com.example.demo.entity.Enum.EnumUserType;
 import com.example.demo.exception.ResourceNotFound;
+import com.example.demo.payload.Request.CustomStaffPermissionRequest;
 import com.example.demo.payload.Response.LoginResponse;
 import com.example.demo.payload.Request.RegisterEmployerRequest;
 import com.example.demo.payload.Request.CreateEmployerByManagerRequest;
 
+import com.example.demo.payload.Response.RoleWithPermissionsResponse;
 import com.example.demo.repository.*;
 import com.example.demo.utils.JWTUtil;
 import jakarta.persistence.EntityNotFoundException;
@@ -17,8 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class AuthService {
@@ -32,7 +33,7 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final EmployerRepository employerRepository;
     private final EmployeeRepository employeeRepository;
-
+    private final DetailPermissionRepository detailPermissionRepository;
     public AuthService(PasswordEncoder passwordEncoder,
                        UserRepository userRepository,
                        PermissionRepository permissionRepository,
@@ -42,7 +43,7 @@ public class AuthService {
                        CompanyService companyService,
                        RoleRepository roleRepository,
                        EmployerRepository employerRepository,
-                       EmployeeRepository employeeRepository) {
+                       EmployeeRepository employeeRepository, DetailPermissionRepository detailPermissionRepository) {
         this.permissionRepository = permissionRepository;
         this.modelMapper = modelMapper;
         this.authenticationManager = authenticationManager;
@@ -53,6 +54,7 @@ public class AuthService {
         this.roleRepository = roleRepository;
         this.employerRepository = employerRepository;
         this.employeeRepository = employeeRepository;
+        this.detailPermissionRepository = detailPermissionRepository;
     }
 
     public User getUserById(String id) {
@@ -230,8 +232,64 @@ public class AuthService {
     }
 
     // Admin: list all PENDING employers
-    public java.util.List<User> getPendingEmployers() {
+    public List<User> getPendingEmployers() {
         return userRepository.findByUserTypeAndApprovalStatus(
                 EnumUserType.EMPLOYER, EnumApprovalStatus.PENDING);
+    }
+//    GET list permissions of a role in company
+    public List<Role> getPermissioByCoompanyId(String companyId){
+        List<Role> roles = roleRepository.findRolesWithCompanyId(UUID.fromString(companyId));
+        return roles;
+    }
+//    Custom permission for company staff
+    @Transactional
+    public void customPermissionForStaff(CustomStaffPermissionRequest request){
+        Role role = roleRepository.findById(UUID.fromString(request.getRoleId()))
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+        // if (request.getCompanyId() != null && role.getCompany() != null) {
+        //     if (!role.getCompany().getId().toString().equals(request.getCompanyId())) {
+        //         throw new RuntimeException("Role does not belong to the company");
+        //     }
+        // }
+
+        List<DetailPermission> detailPermissionList =
+                detailPermissionRepository.findDetailPermissionByRoleId(UUID.fromString(request.getRoleId()));
+
+        List<String> requestedPermissionIds =
+                request.getListPermissionIdAllow() != null ? request.getListPermissionIdAllow() : List.of();
+
+        Set<UUID> requestedIds = new HashSet<>();
+        for (String id : requestedPermissionIds) {
+            requestedIds.add(UUID.fromString(id));
+        }
+
+
+        List<UUID> removeDetailPermissionIds = detailPermissionList.stream()
+                .filter(entry -> !requestedIds.contains(entry.getId()))
+                .map(DetailPermission::getId)
+                .toList();
+
+        if (!removeDetailPermissionIds.isEmpty()) {
+            detailPermissionRepository.deleteAllById(removeDetailPermissionIds);
+        }
+        List<UUID> existingPermissionIds = detailPermissionList.stream()
+                .map(dp -> dp.getPermission().getId())
+                .toList();  
+        List<UUID> addPermissionIds = requestedIds.stream()
+                .filter(record-> !existingPermissionIds.contains(record))
+                .toList();  
+
+        List<Permission> permissionsToAdd = permissionRepository.findAllById(addPermissionIds);
+        if (permissionsToAdd.size() != addPermissionIds.size()) {
+            throw new RuntimeException("One or more permissions were not found");
+        }
+
+        for (Permission permission : permissionsToAdd) {
+            DetailPermission newDetailPermission = new DetailPermission();
+            newDetailPermission.setPermission(permission);
+            newDetailPermission.setRole(role);
+            detailPermissionRepository.save(newDetailPermission);
+        }
+
     }
 }

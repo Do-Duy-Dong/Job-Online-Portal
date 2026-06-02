@@ -5,16 +5,21 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
+@RequiredArgsConstructor
 public class JWTUtil {
     @Value("${jwt.accessSecret}")
     private String secretAccess;
@@ -25,25 +30,24 @@ public class JWTUtil {
     @Value("${jwt.refreshExpirationMs}")
     private long expirationRefresh;
 
+    private RedisTemplate redisTemplate;
     // GENERATE TOKEN
     private String buildToken(String key,
             long expiration,
             String email,
             String companyId,
             List<String> roles,
-            List<String> permissions) {
+            List<String> permissions
+            ) {
         String roleString = String.join(",", roles);
-        String permissionString = permissions != null ? String.join(",", permissions) : "";
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
         claims.put("roles", roleString);
-        if(permissions != null){
-            claims.put("permissions", permissionString);
-        }
-
         if (companyId != null) {
             claims.put("companyId", companyId);
         }
+//        set permission for Redis whenever generate AT
+        redisTemplate.opsForValue().set("permission:" +email,permissions, Duration.of(expirationAccess, ChronoUnit.SECONDS));
         return Jwts.builder()
                 .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))

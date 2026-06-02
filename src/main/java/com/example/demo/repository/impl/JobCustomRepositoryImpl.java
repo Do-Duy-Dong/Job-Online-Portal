@@ -69,7 +69,6 @@ public class JobCustomRepositoryImpl implements JobCustomRepository {
         }
 
         jpql.append("ORDER BY j.createdAt DESC, j.id DESC");
-
         TypedQuery<Job> query = em.createQuery(jpql.toString(), Job.class);
         params.forEach(query::setParameter);
         query.setMaxResults(size);

@@ -1,10 +1,12 @@
 package com.example.demo.payload.Request;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 public class RegisterEmployerRequest {
     private String companyTitle;
     private String companyAddress;

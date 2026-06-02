@@ -17,6 +17,11 @@ public class Role extends BaseEntity {
     private UUID id;
     @Column(unique = true, nullable = false)
     private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
+
     @OneToMany(mappedBy = "role", fetch = FetchType.LAZY)
     private List<DetailPermission> detailPermissions;
 }

@@ -16,6 +16,7 @@ import com.example.demo.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -41,7 +42,7 @@ public class JobService {
     private final TagService tagService;
     private final TagDetailService tagDetailService;
     private final EmployerRepository employerRepository;
-
+    private final RedisTemplate redisTemplate;
     public JobService(
             JobRepository jobRepository,
             CategoryService categoryService,
@@ -49,7 +50,7 @@ public class JobService {
             UserRepository userRepository,
             EmployerRepository employerRepository,
             TagService tagService,
-            TagDetailService tagDetailService) {
+            TagDetailService tagDetailService, RedisTemplate redisTemplate) {
         this.jobRepository = jobRepository;
         this.categoryService = categoryService;
         this.modelMapper = modelMapper;
@@ -57,6 +58,7 @@ public class JobService {
         this.tagService = tagService;
         this.employerRepository = employerRepository;
         this.tagDetailService = tagDetailService;
+        this.redisTemplate = redisTemplate;
     }
 
     public Job findById(UUID id) {
@@ -145,15 +147,20 @@ public class JobService {
     }
 
     // GET /api/job/getAll
-    @Cacheable(value = "job:count", key = "T(com.example.demo.service.JobService).buildCountCacheKey(#keyword, #position, #salary)")
     public long getJobTotalCount(String keyword, Integer position, Integer salary, Integer location) {
         log.debug("Cache totalCount for key: {}:{}:{}",
                 keyword, position, salary);
-        return jobRepository.countAllJobs(keyword, position, location, salary);
+        String key= buildCountCacheKey(keyword, position, salary);
+        if(redisTemplate.hasKey(key)){
+            log.debug("Cache hit for key: {}", key);
+            return (Long) redisTemplate.opsForValue().get(key);
+        }
+        Long numberJob=  jobRepository.countAllJobs(keyword, position, location, salary);
+        redisTemplate.opsForValue().set(key, numberJob);
+        return numberJob;
     }
 
     // POST /api/employer/job/create
-    @CacheEvict(value = "job:count", allEntries = true)
     @Transactional
     public void createJob(JobRequest jobRequest, String email) {
         Category category = categoryService.getCategoryById(UUID.fromString(jobRequest.getCategoryId()));
@@ -183,7 +190,6 @@ public class JobService {
     }
 
     // PUT /api/employer/job/update/{id}
-    @CacheEvict(value = "job:count", allEntries = true)
     @Transactional
     public void updateJob(UUID id, JobRequest jobRequest, String email) {
         Job job = findById(id);
@@ -208,7 +214,6 @@ public class JobService {
     }
 
     // DELETE /api/employer/job/delete/{id}
-    @CacheEvict(value = "job:count", allEntries = true)
     @Transactional
     public void deleteJob(UUID id, String email) {
         Job job = findById(id);

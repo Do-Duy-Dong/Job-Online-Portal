@@ -20,4 +20,5 @@ public class Company {
     private String address;
     private String phone;
     private String email;
+
 }

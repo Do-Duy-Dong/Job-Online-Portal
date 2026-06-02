@@ -1,4 +1,4 @@
-package com.example.demo.config;
+package com.example.demo.filter;
 
 import com.example.demo.entity.CustomUserDetail;
 import com.example.demo.entity.Employer;
@@ -9,11 +9,14 @@ import com.example.demo.repository.JobAssignmentRepository;
 import com.example.demo.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -24,20 +27,21 @@ public class EmployerJobValidator {
     private final JobRepository jobRepository;
     private final EmployerRepository employerRepository;
     private final JobAssignmentRepository jobAssignmentRepository;
-
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public boolean canAccessJob(Authentication authentication, String jobId, String permissionBase) {
-
-        // Tầng 1: job phải thuộc company của employer
-        UUID jobUuid = UUID.fromString(jobId);
         CustomUserDetail userDetail = (CustomUserDetail) authentication.getPrincipal();
-        validateCompanyOwnership(userDetail, jobUuid);
+        UUID jobUuid = UUID.fromString(jobId);
+        // Tầng 1: job phải thuộc company của employer
+        if(jobId != null && !jobId.isBlank()){
+            validateCompanyOwnership(userDetail, jobUuid);
+        }
 
         // Tầng 2: employer phải có quyền
         String allPermission = "PERMISSION_" + permissionBase + "_ALL";
         String ownPermission = "PERMISSION_" + permissionBase + "_OWN";
-        boolean hasAll = hasAuthority(authentication, allPermission);
-        boolean hasOwn = hasAuthority(authentication, ownPermission);
+        boolean hasAll = hasAuthority(userDetail, allPermission);
+        boolean hasOwn = hasAuthority(userDetail, ownPermission);
 
         if (!hasAll && !hasOwn) {
             throw new AccessDeniedException(
@@ -49,8 +53,6 @@ public class EmployerJobValidator {
             log.debug("Access granted via ALL permission [{}] for job [{}]", allPermission, jobId);
             return true;
         }
-
-
 
         // Tầng 3: employer phải được assign vào job
         validateJobAssignment(userDetail, jobUuid);
@@ -72,6 +74,7 @@ public class EmployerJobValidator {
         log.debug("Layer 1 passed – job [{}] belongs to company [{}]", jobUuid, companyId);
     }
 
+    
     private void validateJobAssignment(CustomUserDetail userDetail, UUID jobUuid) {
         String email = userDetail.getUsername();
 
@@ -87,10 +90,10 @@ public class EmployerJobValidator {
         log.debug("Layer 2 passed – employer [{}] is assigned to job [{}]", email, jobUuid);
     }
 
-    private boolean hasAuthority(Authentication authentication, String authority) {
-        return authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(authority::equals);
+    private boolean hasAuthority(UserDetails userDetails, String authority) {
+        String key= "permission:" + userDetails.getUsername();
+        List<String> permission = (List<String>) redisTemplate.opsForValue().get(key);
+        return permission.contains(authority);
     }
 
 
